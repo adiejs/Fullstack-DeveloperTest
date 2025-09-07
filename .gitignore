@@ -1,0 +1,27 @@
+# Proyek Node.js (Frontend & Backend)
+/nestjs-server/node_modules
+/reactjs-client/node_modules
+
+# File yang dibuat oleh Node.js
+/reactjs-client/dist
+/reactjs-client/build
+/nestjs-server/dist
+.env
+npm-debug.log
+yarn-error.log
+
+# Proyek PHP Native (Backend)
+/php-server/vendor
+/php-server/.env
+
+# File yang dibuat oleh PHP
+/nestjs-server/uploads/
+composer.phar
+
+# File OS dan Editor
+.DS_Store
+.vscode/
+.idea/
+.vs/
+*.sublime-project
+*.sublime-workspace
