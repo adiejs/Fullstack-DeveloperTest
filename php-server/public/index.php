@@ -1,31 +1,79 @@
 <?php
-// public/index.php
+require __DIR__ . '/../vendor/autoload.php';
 
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+use App\Core\Request;
+use App\Core\Database;
+use App\Models\User;
+use App\Models\Product;
+use App\Controllers\AuthController;
+use App\Controllers\ProductController;
+use App\Middleware\AuthMiddleware;
 
-use App\Core\Router;
+$config = require __DIR__ . '/../config/config.php';
 
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+$request = new Request();
+$pdo = Database::getConnection($config);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+$userModel = new User($pdo);
+$productModel = new Product($pdo);
+
+$authController = new AuthController($userModel, $config['jwt']);
+$productController = new ProductController($productModel);
+$authMiddleware = new AuthMiddleware($config['jwt']['secret'], $userModel);
+
+$method = $request->method;
+$uri = parse_url($request->uri, PHP_URL_PATH);
+$segments = array_values(array_filter(explode('/', $uri)));
+
+// Routing (very simple)
+// POST /register
+if ($method === 'POST' && $uri === '/auth/register') {
+    $authController->register($request);
+    exit;
 }
 
-$router = new Router();
+// POST /login
+if ($method === 'POST' && $uri === '/auth/login') {
+    $authController->login($request);
+    exit;
+}
 
-$router->get('/', 'AuthController@test');
+// Protected product routes
+if (str_starts_with($uri, '/products')) {
+    $user = $authMiddleware->handle($request->headers);
+    if (!$user) exit;
 
-$router->post('/auth/register', 'AuthController@register');
-$router->post('/auth/login', 'AuthController@login');
+    // GET /products
+    if ($method === 'GET' && $uri === '/products') {
+        $productController->index();
+        exit;
+    }
 
-$router->get('/products', 'ProductController@index');
-$router->get('/products/{id}', 'ProductController@show');
-$router->post('/products', 'ProductController@create');
-$router->put('/products/{id}', 'ProductController@update');
-$router->delete('/products/{id}', 'ProductController@delete');
+    // GET /products/{id}
+    if ($method === 'GET' && preg_match('#^/products/(\d+)$#', $uri, $m)) {
+        $productController->show($m[1]);
+        exit;
+    }
 
-$router->dispatch();
+    // POST /products
+    if ($method === 'POST' && $uri === '/products') {
+        $productController->store($request, $user);
+        exit;
+    }
+
+    // PUT /products/{id}
+    if (($method === 'PUT' || $method === 'PATCH') && preg_match('#^/products/(\d+)$#', $uri, $m)) {
+        $productController->update($request, $m[1], $user);
+        exit;
+    }
+
+    // DELETE /products/{id}
+    if ($method === 'DELETE' && preg_match('#^/products/(\d+)$#', $uri, $m)) {
+        $productController->destroy($m[1], $user);
+        exit;
+    }
+}
+
+// Default fallback
+http_response_code(404);
+echo json_encode(['error' => 'Not Found']);
