@@ -1,11 +1,10 @@
 <?php
-
 namespace App\Controllers;
 
 use App\Core\Request;
 use App\Core\Response;
-use App\Helpers\UploadHelper;
 use App\Models\Product;
+use App\Helpers\UploadHelper;
 
 class ProductController
 {
@@ -16,26 +15,31 @@ class ProductController
         $this->productModel = $productModel;
     }
 
+    // GET /products
     public function index()
     {
-        $list = $this->productModel->all();
-        return Response::json(['data' => $list]);
+        $products = $this->productModel->all();
+        return Response::json($products);
     }
 
+    // GET /products/{id}
     public function show($id)
     {
-        $p = $this->productModel->find((int)$id);
-        if (!$p) return Response::json(['error' => 'Not found'], 404);
-        return Response::json($p);
+        $product = $this->productModel->find((int)$id);
+        if (!$product) {
+            return Response::json(['error' => 'Not found'], 404);
+        }
+        return Response::json($product);
     }
 
-    public function store(Request $request, array $user)
+    // POST /products
+    public function store(Request $request)
     {
         $data = $request->body;
-        $file = $_FILES['image'] ?? null;
+        $file = $_FILES['file'] ?? null;
 
-        if (empty($data['name'] ?? '') || !isset($data['price'])) {
-            return Response::json(['error' => 'name and price required'], 422);
+        if (empty($data['name']) || !isset($data['price'])) {
+            return Response::json(['error' => 'Name and price required'], 422);
         }
 
         $imageUrl = null;
@@ -44,28 +48,30 @@ class ProductController
         }
 
         $payload = [
-            'user_id' => $user['id'],
             'name' => $data['name'],
             'description' => $data['description'] ?? '',
             'price' => $data['price'],
-            'imageUrl' => $imageUrl
+            'imageUrl' => $imageUrl,
+            'updatedAt' => date('Y-m-d H:i:s')
         ];
 
         $id = $this->productModel->create($payload);
         return Response::json(['message' => 'created', 'id' => $id], 201);
     }
 
-    public function update(Request $request, $id, array $user)
+    // PUT /products/{id}
+    public function update(Request $request, $id)
     {
         $product = $this->productModel->find((int)$id);
-        if (!$product) return Response::json(['error' => 'Not found'], 404);
-        if ($product['user_id'] != $user['id']) return Response::json(['error' => 'Forbidden'], 403);
+        if (!$product) {
+            return Response::json(['error' => 'Not found'], 404);
+        }
 
         $data = $request->body;
-        $file = $_FILES['image'] ?? null;
+        $file = $_FILES['file'] ?? null;
 
-        if (empty($data['name'] ?? '') || !isset($data['price'])) {
-            return Response::json(['error' => 'name and price required'], 422);
+        if (empty($data['name']) || !isset($data['price'])) {
+            return Response::json(['error' => 'Name and price required'], 422);
         }
 
         $imageUrl = $product['imageUrl'] ?? null;
@@ -74,18 +80,41 @@ class ProductController
         }
 
         $data['imageUrl'] = $imageUrl;
+        $data['updatedAt'] = date('Y-m-d H:i:s');
 
         $this->productModel->update((int)$id, $data);
         return Response::json(['message' => 'updated']);
     }
 
-    public function destroy($id, array $user)
+    // DELETE /products/{id}
+    public function destroy($id)
     {
         $product = $this->productModel->find((int)$id);
-        if (!$product) return Response::json(['error' => 'Not found'], 404);
-        if ($product['user_id'] != $user['id']) return Response::json(['error' => 'Forbidden'], 403);
+        if (!$product) {
+            return Response::json(['error' => 'Not found'], 404);
+        }
 
         $this->productModel->delete((int)$id);
         return Response::json(['message' => 'deleted']);
+    }
+
+    // POST /products/upload-image
+    public function uploadImage(Request $request)
+    {
+        if (!isset($_FILES['file'])) {
+            return Response::json(['error' => 'No file uploaded'], 400);
+        }
+
+        $file = $_FILES['file'];
+        $imageUrl = UploadHelper::uploadFile($file);
+
+        if (!$imageUrl) {
+            return Response::json(['error' => 'Upload failed'], 500);
+        }
+
+        return Response::json([
+            'message' => 'Upload successful',
+            'imageUrl' => $imageUrl
+        ], 200);
     }
 }

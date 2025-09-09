@@ -19,6 +19,12 @@ class AuthMiddleware
 
     public function handle(array $headers): ?array
     {
+        // Abaikan preflight OPTIONS
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(200);
+            exit;
+        }
+
         $auth = $headers['Authorization'] ?? $headers['authorization'] ?? null;
         if (!$auth || !str_starts_with($auth, 'Bearer ')) {
             Response::json(['error' => 'Unauthorized'], 401);

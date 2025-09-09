@@ -8,8 +8,12 @@ use App\Models\Product;
 use App\Controllers\AuthController;
 use App\Controllers\ProductController;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\CorsMiddleware;
 
 $config = require __DIR__ . '/../config/config.php';
+
+// Panggil CORS middleware paling atas
+CorsMiddleware::handle();
 
 $request = new Request();
 $pdo = Database::getConnection($config);
@@ -23,16 +27,14 @@ $authMiddleware = new AuthMiddleware($config['jwt']['secret'], $userModel);
 
 $method = $request->method;
 $uri = parse_url($request->uri, PHP_URL_PATH);
-$segments = array_values(array_filter(explode('/', $uri)));
 
-// Routing (very simple)
-// POST /register
+// POST /auth/register
 if ($method === 'POST' && $uri === '/auth/register') {
     $authController->register($request);
     exit;
 }
 
-// POST /login
+// POST /auth/login
 if ($method === 'POST' && $uri === '/auth/login') {
     $authController->login($request);
     exit;
@@ -40,6 +42,13 @@ if ($method === 'POST' && $uri === '/auth/login') {
 
 // Protected product routes
 if (str_starts_with($uri, '/products')) {
+
+    // Tangani preflight OPTIONS sebelum Auth
+    if ($method === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
+
     $user = $authMiddleware->handle($request->headers);
     if (!$user) exit;
 
@@ -57,19 +66,25 @@ if (str_starts_with($uri, '/products')) {
 
     // POST /products
     if ($method === 'POST' && $uri === '/products') {
-        $productController->store($request, $user);
+        $productController->store($request);
         exit;
     }
 
-    // PUT /products/{id}
+    // PUT /products/{id} atau PATCH
     if (($method === 'PUT' || $method === 'PATCH') && preg_match('#^/products/(\d+)$#', $uri, $m)) {
-        $productController->update($request, $m[1], $user);
+        $productController->update($request, $m[1]);
         exit;
     }
 
     // DELETE /products/{id}
     if ($method === 'DELETE' && preg_match('#^/products/(\d+)$#', $uri, $m)) {
-        $productController->destroy($m[1], $user);
+        $productController->destroy($m[1]);
+        exit;
+    }
+
+    // POST /products/upload-image
+    if ($method === 'POST' && $uri === '/products/upload-image') {
+        $productController->uploadImage($request);
         exit;
     }
 }

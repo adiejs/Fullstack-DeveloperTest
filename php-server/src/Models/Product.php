@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use PDO;
@@ -28,15 +29,16 @@ class Product
 
     public function create(array $data): int
     {
-        $stmt = $this->db->prepare('INSERT INTO product (user_id, name, description, price) VALUES (?, ?, ?, ?)');
-        $stmt->execute([$data['user_id'], $data['name'], $data['description'], $data['price']]);
+        $stmt = $this->db->prepare("INSERT INTO product (name, description, price, imageUrl, updatedAt) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$data['name'], $data['description'], $data['price'], $data['imageUrl'], $data['updatedAt']]);
         return (int)$this->db->lastInsertId();
     }
 
+
     public function update(int $id, array $data): bool
     {
-        $stmt = $this->db->prepare('UPDATE product SET name = ?, description = ?, price = ? WHERE id = ?');
-        return $stmt->execute([$data['name'], $data['description'], $data['price'], $id]);
+        $stmt = $this->db->prepare("UPDATE product SET name=?, description=?, price=?, imageUrl=?, updatedAt=? WHERE id=?");
+        return $stmt->execute([$data['name'], $data['description'], $data['price'], $data['imageUrl'], $data['updatedAt'], $id]);
     }
 
     public function delete(int $id): bool

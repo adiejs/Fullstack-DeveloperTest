@@ -10,7 +10,7 @@ return [
         'charset' => 'utf8mb4'
     ],
     'jwt' => [
-        'secret' => 'replace_this_with_a_very_long_random_secret',
+        'secret' => 'rahasia_super_aman',
         'issuer' => 'yourdomain.com',
         'aud' => 'yourdomain.com',
         'expire' => 3600
